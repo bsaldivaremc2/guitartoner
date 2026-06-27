@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Tuner — C1 to B8</title>
+<style>
+:root {
+  --bg:       #0d0e16;
+  --panel:    #181a27;
+  --border:   #272a3c;
+  --border2:  #1e2132;
+  --teal:     #22d4a0;
+  --teal-bg:  rgba(34,212,160,0.08);
+  --amber:    #f0922a;
+  --amber-bg: rgba(240,146,42,0.08);
+  --red:      #e04040;
+  --text:     #ded8cc;
+  --muted:    #636882;
+  --dim:      #383c52;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 36px 20px 48px;
+}
+
+/* Header */
+.hdr { text-align: center; margin-bottom: 32px; }
+.hdr-eyebrow { font-size: 9px; letter-spacing: 5px; text-transform: uppercase; color: var(--dim); }
+.hdr-title   { font-size: 11px; letter-spacing: 9px; text-transform: uppercase; color: var(--muted); font-weight: 300; margin-top: 3px; }
+
+/* Note display */
+.note-display { text-align: center; margin-bottom: 24px; user-select: none; }
+.note-name {
+  font-size: clamp(88px, 18vw, 136px);
+  font-weight: 800;
+  line-height: 0.88;
+  letter-spacing: -4px;
+  color: var(--dim);
+  transition: color 0.1s ease, text-shadow 0.2s ease;
+}
+.note-name.listening { color: var(--muted); }
+.note-name.in-tune   { color: var(--teal);  text-shadow: 0 0 80px rgba(34,212,160,0.22); }
+.note-name.off-tune  { color: var(--amber); }
+.note-name.very-off  { color: var(--red);   }
+
+.note-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.freq-readout {
+  font-size: 19px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono','Cascadia Code','Consolas','Courier New',monospace;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+.freq-unit { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-left: 3px; }
+.cents-readout {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono','Cascadia Code','Consolas','Courier New',monospace;
+  color: var(--muted);
+  min-width: 58px;
+}
+.in-tune-badge {
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--teal); padding: 3px 8px;
+  border: 1px solid rgba(34,212,160,0.35); border-radius: 2px;
+  opacity: 0; transition: opacity 0.15s;
+}
+.in-tune-badge.show { opacity: 1; }
+
+/* Gauge housing */
+.gauge-housing {
+  width: 100%; max-width: 740px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 32px 24px;
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.035),
+    inset 0 -1px 0 rgba(0,0,0,0.4),
+    0 4px 6px rgba(0,0,0,0.3),
+    0 20px 60px rgba(0,0,0,0.55);
+  margin-bottom: 10px;
+}
+.housing-screw {
+  position: absolute; width: 8px; height: 8px;
+  background: radial-gradient(circle at 35% 35%, #2e3148, #141622);
+  border-radius: 50%; border: 1px solid var(--border2);
+}
+.housing-screw:nth-child(1) { top: 10px; left: 12px; }
+.housing-screw:nth-child(2) { top: 10px; right: 12px; }
+.housing-screw:nth-child(3) { bottom: 10px; left: 12px; }
+.housing-screw:nth-child(4) { bottom: 10px; right: 12px; }
+canvas#gauge { display: block; width: 100%; height: auto; }
+
+/* Range label */
+.range-badge {
+  font-size: 9px; letter-spacing: 2px; color: var(--dim);
+  text-align: center; margin-bottom: 22px; margin-top: 8px;
+}
+
+/* Mic controls */
+.controls {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 9px; margin-bottom: 22px;
+}
+.start-btn {
+  appearance: none; background: transparent;
+  border: 1px solid var(--border); color: var(--muted);
+  font-family: inherit; font-size: 10px; letter-spacing: 4px;
+  text-transform: uppercase; padding: 11px 32px;
+  border-radius: 4px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.start-btn:hover:not(:disabled)  { border-color: var(--teal); color: var(--teal); }
+.start-btn:active:not(:disabled) { background: var(--teal-bg); }
+.start-btn.active { border-color: rgba(34,212,160,0.4); color: var(--teal); cursor: default; }
+.start-btn:disabled { cursor: default; }
+.status-line { font-size: 10px; letter-spacing: 1.5px; color: var(--dim); text-align: center; }
+
+/* Probe panel */
+.probe-panel {
+  width: 100%; max-width: 740px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 28px 18px;
+  margin-bottom: 26px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.probe-header { font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--dim); }
+
+.probe-main-row {
+  display: flex; align-items: center; gap: 0;
+  width: 100%; max-width: 380px;
+}
+.probe-nav {
+  appearance: none; background: transparent;
+  border: 1px solid var(--border); color: var(--muted);
+  width: 40px; height: 52px; font-size: 13px;
+  cursor: pointer; transition: all 0.12s; flex-shrink: 0;
+}
+.probe-nav:first-child { border-radius: 4px 0 0 4px; }
+.probe-nav:last-child  { border-radius: 0 4px 4px 0; }
+.probe-nav:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+
+.probe-note-display {
+  flex: 1; text-align: center;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 12px; height: 52px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.probe-note-name {
+  display: block; font-size: 24px; font-weight: 800;
+  letter-spacing: -1px; color: var(--text); line-height: 1;
+}
+.probe-note-freq {
+  display: block; font-size: 11px; font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono','Consolas','Courier New',monospace;
+  color: var(--muted); margin-top: 2px;
+}
+
+.probe-play-btn {
+  appearance: none; background: transparent;
+  border: 1px solid var(--border); color: var(--muted);
+  font-family: inherit; font-size: 10px; letter-spacing: 3px;
+  text-transform: uppercase; padding: 10px 26px;
+  border-radius: 4px; cursor: pointer; transition: all 0.15s;
+}
+.probe-play-btn:hover   { border-color: var(--amber); color: var(--amber); }
+.probe-play-btn.playing { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+
+.probe-hint { font-size: 10px; color: var(--dim); letter-spacing: 0.5px; text-align: center; }
+
+/* Guitar strings */
+.strings-section { text-align: center; }
+.strings-label { font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
+.strings-row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.string-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 10px; background: var(--panel);
+  border: 1px solid var(--border2); border-radius: 5px;
+  min-width: 48px; cursor: pointer; transition: border-color 0.12s;
+}
+.string-chip:hover { border-color: var(--amber); }
+.string-chip .sn { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+.string-chip .sf { font-size: 9px; font-variant-numeric: tabular-nums; font-family: monospace; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <p class="hdr-eyebrow">Instrument</p>
+  <p class="hdr-title">Pitch Detector</p>
+</header>
+
+<div class="note-display">
+  <div class="note-name" id="noteName">–</div>
+  <div class="note-meta">
+    <div>
+      <span class="freq-readout" id="freqVal">–</span>
+      <span class="freq-unit">Hz</span>
+    </div>
+    <span class="cents-readout" id="centsVal">– ¢</span>
+    <span class="in-tune-badge" id="inTuneBadge">In Tune</span>
+  </div>
+</div>
+
+<div class="gauge-housing">
+  <span class="housing-screw"></span>
+  <span class="housing-screw"></span>
+  <span class="housing-screw"></span>
+  <span class="housing-screw"></span>
+  <canvas id="gauge" width="676" height="160"></canvas>
+</div>
+
+<p class="range-badge">C1 (32.7 Hz) &nbsp;→&nbsp; B8 (7902 Hz) &nbsp;·&nbsp; 8 octaves</p>
+
+<div class="controls">
+  <button class="start-btn" id="startBtn">Enable Microphone</button>
+  <p class="status-line" id="statusLine">Click to begin</p>
+</div>
+
+<div class="probe-panel">
+  <p class="probe-header">Test Tone — Probe</p>
+  <div class="probe-main-row">
+    <button class="probe-nav" id="probeDown" title="Previous note (−1 semitone)">◀</button>
+    <div class="probe-note-display">
+      <span class="probe-note-name" id="probeNoteName">E4</span>
+      <span class="probe-note-freq" id="probeNoteFreq">329.6 Hz</span>
+    </div>
+    <button class="probe-nav" id="probeUp" title="Next note (+1 semitone)">▶</button>
+  </div>
+  <button class="probe-play-btn" id="probePlayBtn">▶ Play Test Tone</button>
+  <p class="probe-hint">Routes directly into the tuner — no microphone needed &nbsp;·&nbsp; ← → change note &nbsp;·&nbsp; ↑ ↓ jump octave &nbsp;·&nbsp; Space play/stop</p>
+</div>
+
+<div class="strings-section">
+  <p class="strings-label">Standard Tuning — EADGBE</p>
+  <div class="strings-row">
+    <div class="string-chip" data-midi="40"><span class="sn">E2</span><span class="sf">82.4 Hz</span></div>
+    <div class="string-chip" data-midi="45"><span class="sn">A2</span><span class="sf">110.0 Hz</span></div>
+    <div class="string-chip" data-midi="50"><span class="sn">D3</span><span class="sf">146.8 Hz</span></div>
+    <div class="string-chip" data-midi="55"><span class="sn">G3</span><span class="sf">196.0 Hz</span></div>
+    <div class="string-chip" data-midi="59"><span class="sn">B3</span><span class="sf">246.9 Hz</span></div>
+    <div class="string-chip" data-midi="64"><span class="sn">E4</span><span class="sf">329.6 Hz</span></div>
+  </div>
+</div>
+
+<script>
+/* ── Note math ── */
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const A4 = 440;
+
+function freqToMidi(f) { return 12 * Math.log2(f / A4) + 69; }
+function midiToFreq(m) { return A4 * Math.pow(2, (m - 69) / 12); }
+
+function noteLabel(midi) {
+  const m   = Math.round(midi);
+  const idx = ((m % 12) + 12) % 12;
+  const oct = Math.floor(m / 12) - 1;
+  return NOTE_NAMES[idx] + oct;
+}
+
+function parseFreq(freq) {
+  if (!freq || freq <= 0) return null;
+  const midi  = freqToMidi(freq);
+  const round = Math.round(midi);
+  const cents = (midi - round) * 100;
+  return {
+    label:      noteLabel(round),
+    cents, freq,
+    lowerLabel: noteLabel(round - 1),
+    upperLabel: noteLabel(round + 1),
+  };
+}
+
+/* ── Pitch detection: MPM / NSDF
+   C1 = 32.7 Hz → period ≈ 1349 samples @ 44100 Hz  → needs 4096 buffer
+   B8 = 7902 Hz → period ≈ 5.6 samples               → minLag = 5
+── */
+const BUFFER_SIZE = 4096;
+
+function detectPitch(buf, sr) {
+  const n = buf.length;
+
+  let rms = 0;
+  for (let i = 0; i < n; i++) rms += buf[i] * buf[i];
+  if (Math.sqrt(rms / n) < 0.008) return -1;
+
+  const minLag = Math.max(4, Math.floor(sr / 8200)); // ~8200 Hz ceiling
+  const maxLag = Math.ceil(sr / 28);                 // ~28 Hz floor (below C1)
+  const winLen = n - maxLag;
+  if (winLen < 64) return -1;
+
+  // Normalized Square Difference Function
+  const nsdf = new Float32Array(maxLag + 1);
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0, norm = 0;
+    for (let i = 0; i < winLen; i++) {
+      corr += buf[i] * buf[i + lag];
+      norm += buf[i] * buf[i] + buf[i + lag] * buf[i + lag];
+    }
+    nsdf[lag] = norm > 0 ? (2 * corr) / norm : 0;
+  }
+
+  // Skip the initial positive lobe
+  let d = minLag;
+  while (d < maxLag && nsdf[d] > 0) d++;
+  while (d < maxLag && nsdf[d] <= 0) d++;
+
+  // Collect local maxima above threshold
+  const THRESH = 0.25;
+  let globalMax = -1;
+  const peaks = [];
+  for (let i = d + 1; i < maxLag - 1; i++) {
+    if (nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1] && nsdf[i] > THRESH) {
+      peaks.push(i);
+      if (nsdf[i] > globalMax) globalMax = nsdf[i];
+    }
+  }
+  if (!peaks.length) return -1;
+
+  // First peak within 80% of global max = fundamental (avoids octave jumps)
+  const peakLag = peaks.find(p => nsdf[p] >= 0.8 * globalMax);
+  if (peakLag == null || peakLag <= 0 || peakLag >= maxLag) return -1;
+
+  // Parabolic interpolation for sub-sample accuracy
+  const y1 = nsdf[peakLag - 1], y2 = nsdf[peakLag], y3 = nsdf[peakLag + 1];
+  const a  = (y1 + y3 - 2 * y2) / 2;
+  const b  = (y3 - y1) / 2;
+  const T0 = a !== 0 ? peakLag - b / (2 * a) : peakLag;
+  return sr / T0;
+}
+
+/* ── Canvas gauge ── */
+const canvas = document.getElementById('gauge');
+const ctx    = canvas.getContext('2d');
+const DPR    = Math.min(window.devicePixelRatio || 1, 2);
+let canvasW  = 0, canvasH = 0;
+
+function resizeCanvas() {
+  canvasW = canvas.parentElement.clientWidth - 64;
+  canvasH = 160;
+  canvas.style.width  = canvasW + 'px';
+  canvas.style.height = canvasH + 'px';
+  canvas.width        = canvasW * DPR;
+  canvas.height       = canvasH * DPR;
+}
+
+let targetCents  = 0;
+let displayCents = 0;
+let currentNote  = null;
+let pulsePhase   = 0;
+
+function rrect(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawGauge() {
+  const W = canvasW, H = canvasH;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad  = 52, gL = pad, gR = W - pad, gW = gR - gL;
+  const cy   = H / 2 + 14;
+  const half = gL + gW / 2;
+
+  // Sunken groove
+  ctx.fillStyle = '#0c0e18';
+  rrect(gL - 4, cy - 18, gW + 8, 36, 4); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.012)';
+  rrect(gL - 3, cy - 17, gW + 6, 34, 3); ctx.fill();
+
+  // Gradient track
+  const tg = ctx.createLinearGradient(gL, 0, gR, 0);
+  tg.addColorStop(0.00, 'rgba(224,64,64,0.55)');
+  tg.addColorStop(0.18, 'rgba(240,146,42,0.50)');
+  tg.addColorStop(0.38, 'rgba(100,210,130,0.42)');
+  tg.addColorStop(0.46, 'rgba(34,212,160,0.65)');
+  tg.addColorStop(0.50, 'rgba(34,212,160,0.85)');
+  tg.addColorStop(0.54, 'rgba(34,212,160,0.65)');
+  tg.addColorStop(0.62, 'rgba(100,210,130,0.42)');
+  tg.addColorStop(0.82, 'rgba(240,146,42,0.50)');
+  tg.addColorStop(1.00, 'rgba(224,64,64,0.55)');
+  ctx.fillStyle = tg;
+  rrect(gL, cy - 2.5, gW, 5, 2); ctx.fill();
+
+  // Tick marks: -50 → +50¢, every 10¢ = 11 total
+  for (let step = -5; step <= 5; step++) {
+    const cent  = step * 10;
+    const x     = half + (cent / 100) * gW;
+    const isC   = cent === 0;
+    const isMaj = cent % 20 === 0;
+    const h     = isC ? 52 : isMaj ? 28 : 16;
+    const w     = isC ? 1.5 : 1;
+    const alpha = isC ? 0.38 : isMaj ? 0.22 : 0.13;
+    ctx.fillStyle = `rgba(100,105,135,${alpha})`;
+    ctx.fillRect(x - w / 2, cy - h / 2, w, h);
+
+    if (isMaj || isC) {
+      ctx.fillStyle = 'rgba(56,60,82,0.9)';
+      ctx.font = '9px system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(cent === 0 ? '0' : (cent > 0 ? '+' : '') + cent + '¢', x, cy + 27);
+    }
+  }
+
+  // Neighbor labels
+  if (currentNote) {
+    ctx.font = '600 12px system-ui,sans-serif';
+    ctx.fillStyle = 'rgba(224,64,64,0.55)';
+    ctx.textAlign = 'left';  ctx.fillText(currentNote.lowerLabel, gL - 2, cy - 27);
+    ctx.textAlign = 'right'; ctx.fillText(currentNote.upperLabel, gR + 2, cy - 27);
+    ctx.fillStyle = 'rgba(99,104,130,0.7)';
+    ctx.font = '500 10px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentNote.label.toUpperCase(), half, cy - 27);
+  }
+
+  // Center reference
+  ctx.fillStyle = 'rgba(55,60,82,0.55)';
+  ctx.fillRect(half - 0.75, cy - 34, 1.5, 68);
+
+  // Needle
+  if (currentNote) {
+    const dc  = displayCents;
+    const nx  = half + (dc / 100) * gW;
+    const abs = Math.abs(dc);
+
+    let r, g, b;
+    if (abs < 5) {
+      pulsePhase += 0.075;
+      const p = 0.78 + 0.22 * Math.sin(pulsePhase);
+      r = Math.round(34 * p); g = Math.round(212 * p); b = Math.round(160 * p);
+    } else {
+      pulsePhase = 0;
+      if      (abs < 15) { r = 85;  g = 210; b = 105; }
+      else if (abs < 25) { r = 215; g = 185; b = 30;  }
+      else if (abs < 38) { r = 240; g = 128; b = 26;  }
+      else               { r = 224; g = 64;  b = 64;  }
+    }
+    const css = `rgb(${r},${g},${b})`;
+
+    if (abs < 5) {
+      const zW = (14 / 100) * gW;
+      const zg = ctx.createLinearGradient(half - zW, 0, half + zW, 0);
+      zg.addColorStop(0, 'rgba(34,212,160,0)');
+      zg.addColorStop(0.5, 'rgba(34,212,160,0.06)');
+      zg.addColorStop(1, 'rgba(34,212,160,0)');
+      ctx.fillStyle = zg;
+      ctx.fillRect(half - zW, cy - 38, zW * 2, 76);
+    }
+
+    ctx.shadowBlur = abs < 8 ? 22 : abs < 22 ? 12 : 7;
+    ctx.shadowColor = css;
+    ctx.fillStyle   = css;
+    const nh = 60;
+    ctx.fillRect(nx - 1.5, cy - nh / 2, 3, nh);
+    ctx.beginPath();
+    ctx.moveTo(nx,     cy - nh / 2 - 13);
+    ctx.lineTo(nx - 7, cy - nh / 2 + 1);
+    ctx.lineTo(nx + 7, cy - nh / 2 + 1);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+  }
+}
+
+/* ── Render loop ── */
+function renderLoop() {
+  displayCents += (targetCents - displayCents) * (probeActive ? 0.20 : 0.11);
+  drawGauge();
+  requestAnimationFrame(renderLoop);
+}
+
+/* ── Audio engine ── */
+let audioCtx, analyser, micSource;
+let isRunning  = false;
+let audioLoop  = false;
+let silenceN   = 0;
+const SIL_MAX  = 40;
+const floatBuf = new Float32Array(BUFFER_SIZE);
+
+async function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = BUFFER_SIZE;
+  }
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+}
+
+function setNote(info) {
+  currentNote = info; targetCents = info.cents; silenceN = 0;
+  const el = document.getElementById('noteName');
+  el.textContent = info.label;
+  const abs = Math.abs(info.cents);
+  el.className = 'note-name ' + (abs < 5 ? 'in-tune' : abs < 25 ? 'off-tune' : 'very-off');
+  document.getElementById('freqVal').textContent  = info.freq.toFixed(1);
+  document.getElementById('centsVal').textContent = (info.cents >= 0 ? '+' : '') + info.cents.toFixed(1) + ' ¢';
+  document.getElementById('inTuneBadge').classList.toggle('show', abs < 5);
+}
+
+function clearNote() {
+  currentNote = null; pulsePhase = 0; silenceN = 0;
+  document.getElementById('noteName').textContent = '–';
+  document.getElementById('noteName').className   = 'note-name listening';
+  document.getElementById('freqVal').textContent  = '–';
+  document.getElementById('centsVal').textContent = '– ¢';
+  document.getElementById('inTuneBadge').classList.remove('show');
+}
+
+function processAudio() {
+  if (!isRunning) { audioLoop = false; return; }
+  analyser.getFloatTimeDomainData(floatBuf);
+  const freq = detectPitch(floatBuf, audioCtx.sampleRate);
+  if (freq > 28 && freq < 8200) {
+    const info = parseFreq(freq);
+    if (info) setNote(info);
+  } else {
+    if (++silenceN >= SIL_MAX) clearNote();
+  }
+  setTimeout(processAudio, 38);
+}
+
+function startLoop() {
+  if (!audioLoop) { audioLoop = true; processAudio(); }
+}
+
+/* Microphone */
+async function startMic() {
+  const btn = document.getElementById('startBtn');
+  try {
+    btn.textContent = 'Requesting…'; btn.disabled = true;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      video: false,
+    });
+    await ensureAudioCtx();
+    micSource = audioCtx.createMediaStreamSource(stream);
+    if (!probeActive) micSource.connect(analyser);
+    isRunning = true; startLoop();
+    btn.textContent = 'Listening'; btn.classList.add('active');
+    document.getElementById('statusLine').textContent = 'Play a note on your guitar or sing';
+  } catch (err) {
+    btn.textContent = 'Enable Microphone'; btn.disabled = false;
+    document.getElementById('statusLine').textContent =
+      err.name === 'NotAllowedError'
+        ? 'Microphone access denied — check browser permissions'
+        : 'Could not open microphone: ' + err.message;
+  }
+}
+document.getElementById('startBtn').addEventListener('click', startMic);
+
+/* ── Probe — test oscillator ── */
+const PROBE_MIN = 24;   // C1
+const PROBE_MAX = 119;  // B8
+let probeMidi   = 64;   // E4
+let probeActive = false;
+let probeOsc    = null;
+let probeGain   = null;
+
+function updateProbeDisplay() {
+  const freq = midiToFreq(probeMidi);
+  document.getElementById('probeNoteName').textContent = noteLabel(probeMidi);
+  document.getElementById('probeNoteFreq').textContent = freq.toFixed(1) + ' Hz';
+  if (probeOsc) probeOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.008);
+}
+
+async function startProbe() {
+  await ensureAudioCtx();
+  if (micSource) micSource.disconnect(); // mic yields to probe
+
+  probeOsc  = audioCtx.createOscillator();
+  probeGain = audioCtx.createGain();
+  probeOsc.type            = 'sine';
+  probeOsc.frequency.value = midiToFreq(probeMidi);
+  probeGain.gain.value     = 0.28;
+
+  probeOsc.connect(probeGain);
+  probeGain.connect(analyser);             // pitch detection
+  probeGain.connect(audioCtx.destination); // speakers
+
+  probeOsc.start();
+  probeActive = true; isRunning = true; startLoop();
+
+  document.getElementById('probePlayBtn').textContent = '■ Stop';
+  document.getElementById('probePlayBtn').classList.add('playing');
+  document.getElementById('statusLine').textContent = 'Test tone active — verify tuner reading';
+}
+
+function stopProbe() {
+  if (probeOsc) {
+    probeGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.012);
+    const o = probeOsc, g = probeGain;
+    setTimeout(() => { o.stop(); o.disconnect(); g.disconnect(); }, 80);
+    probeOsc = probeGain = null;
+  }
+  probeActive = false;
+  if (micSource) micSource.connect(analyser); // restore mic
+
+  document.getElementById('probePlayBtn').textContent = '▶ Play Test Tone';
+  document.getElementById('probePlayBtn').classList.remove('playing');
+  document.getElementById('statusLine').textContent =
+    micSource ? 'Play a note on your guitar or sing' : 'Click to begin';
+}
+
+document.getElementById('probeDown').addEventListener('click', () => {
+  probeMidi = Math.max(PROBE_MIN, probeMidi - 1); updateProbeDisplay();
+});
+document.getElementById('probeUp').addEventListener('click', () => {
+  probeMidi = Math.min(PROBE_MAX, probeMidi + 1); updateProbeDisplay();
+});
+document.getElementById('probePlayBtn').addEventListener('click', () => {
+  probeActive ? stopProbe() : startProbe();
+});
+
+// Guitar string chips: click to probe that note
+document.querySelectorAll('.string-chip[data-midi]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    probeMidi = parseInt(chip.dataset.midi, 10);
+    updateProbeDisplay();
+    if (!probeActive) startProbe();
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'BUTTON') return;
+  if (e.key === 'ArrowLeft')  { probeMidi = Math.max(PROBE_MIN, probeMidi - 1);  updateProbeDisplay(); }
+  if (e.key === 'ArrowRight') { probeMidi = Math.min(PROBE_MAX, probeMidi + 1);  updateProbeDisplay(); }
+  if (e.key === 'ArrowUp')    { probeMidi = Math.min(PROBE_MAX, probeMidi + 12); updateProbeDisplay(); }
+  if (e.key === 'ArrowDown')  { probeMidi = Math.max(PROBE_MIN, probeMidi - 12); updateProbeDisplay(); }
+  if (e.key === ' ') { e.preventDefault(); probeActive ? stopProbe() : startProbe(); }
+});
+
+/* ── Init ── */
+window.addEventListener('resize', () => { resizeCanvas(); drawGauge(); });
+resizeCanvas();
+updateProbeDisplay();
+renderLoop();
+</script>
+</body>
+</html>
