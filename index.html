@@ -62,6 +62,8 @@
 </script>
 
 <style>
+html { scroll-behavior: smooth; }
+
 :root {
   --bg:       #0d0e16;
   --panel:    #181a27;
@@ -90,6 +92,30 @@ body {
   justify-content: flex-start;
   padding: 36px 20px 48px;
 }
+
+/* Section nav */
+.section-nav {
+  width: 100%; max-width: 740px;
+  display: flex; gap: 0;
+  border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; margin-bottom: 32px;
+}
+.nav-tab {
+  flex: 1; text-decoration: none; text-align: center;
+  font-family: inherit; font-size: 10px; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--muted);
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  transition: color 0.15s, background 0.15s;
+}
+.nav-tab:last-child { border-right: none; }
+.nav-tab:hover { color: var(--teal); background: var(--teal-bg); }
+
+.page-section {
+  width: 100%; display: flex; flex-direction: column; align-items: center;
+  scroll-margin-top: 24px;
+}
+.page-section + .page-section { margin-top: 16px; }
 
 /* Header */
 .hdr { text-align: center; margin-bottom: 32px; }
@@ -263,14 +289,122 @@ canvas#gauge { display: block; width: 100%; height: auto; }
 .string-chip:hover { border-color: var(--amber); }
 .string-chip .sn { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
 .string-chip .sf { font-size: 9px; font-variant-numeric: tabular-nums; font-family: monospace; color: var(--muted); }
+
+/* Metronome */
+.metro-panel {
+  width: 100%; max-width: 740px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 28px 18px;
+  margin-bottom: 26px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.metro-header { font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--dim); }
+.metro-bpm-row {
+  display: flex; align-items: center; gap: 16px; width: 100%; max-width: 380px;
+}
+.metro-slider {
+  flex: 1; -webkit-appearance: none; appearance: none; height: 4px;
+  background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+}
+.metro-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: var(--teal); border-radius: 50%; cursor: pointer;
+}
+.metro-slider::-moz-range-thumb {
+  width: 16px; height: 16px; background: var(--teal);
+  border-radius: 50%; cursor: pointer; border: none;
+}
+.metro-bpm-display { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+.metro-bpm-input {
+  font-size: 30px; font-weight: 800; letter-spacing: -1px;
+  color: var(--text); font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono','Cascadia Code','Consolas','Courier New',monospace; line-height: 1;
+  background: transparent; border: none; outline: none;
+  width: 72px; text-align: center; cursor: text;
+  -moz-appearance: textfield;
+}
+.metro-bpm-input::-webkit-inner-spin-button,
+.metro-bpm-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.metro-bpm-input:focus { color: var(--teal); }
+.metro-bpm-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+.beat-row { display: flex; gap: 10px; }
+.beat-dot {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--border2); background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; color: var(--dim);
+  transition: background 0.05s, border-color 0.05s, color 0.05s, box-shadow 0.05s;
+}
+.beat-dot.lit { background: var(--teal); border-color: var(--teal); color: var(--bg); }
+.beat-dot.lit.accent { box-shadow: 0 0 18px rgba(34,212,160,0.45); }
+.metro-controls-row { display: flex; gap: 10px; }
+.metro-btn {
+  appearance: none; background: transparent;
+  border: 1px solid var(--border); color: var(--muted);
+  font-family: inherit; font-size: 10px; letter-spacing: 3px;
+  text-transform: uppercase; padding: 10px 24px;
+  border-radius: 4px; cursor: pointer; transition: all 0.15s;
+}
+.metro-btn:hover { border-color: var(--teal); color: var(--teal); }
+.metro-start-btn:hover { border-color: var(--amber); color: var(--amber); }
+.metro-start-btn.active { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+.metro-time-row { display: flex; gap: 6px; }
+.metro-time-chip {
+  appearance: none; background: transparent;
+  border: 1px solid var(--border2); color: var(--muted);
+  font-family: inherit; font-size: 10px; letter-spacing: 2px;
+  padding: 4px 12px; border-radius: 3px; cursor: pointer; transition: all 0.12s;
+}
+.metro-time-chip:hover    { border-color: var(--teal); color: var(--teal); }
+.metro-time-chip.selected { border-color: var(--teal); color: var(--teal); background: var(--teal-bg); }
 </style>
 </head>
 <body>
+
+<nav class="section-nav">
+  <a href="#probe-section" class="nav-tab">Probe</a>
+  <a href="#tuner-section" class="nav-tab">Tuner</a>
+  <a href="#metro-section" class="nav-tab">Metronome</a>
+</nav>
 
 <header class="hdr">
   <p class="hdr-eyebrow">Free Online</p>
   <h1 class="hdr-title">Guitar Tuner — Chromatic Pitch Detector</h1>
 </header>
+
+<section class="page-section" id="probe-section">
+
+<div class="probe-panel">
+  <p class="probe-header">Test Tone — Probe</p>
+  <div class="probe-main-row">
+    <button class="probe-nav" id="probeDown" title="Previous note (−1 semitone)">◀</button>
+    <div class="probe-note-display">
+      <span class="probe-note-name" id="probeNoteName">E4</span>
+      <span class="probe-note-freq" id="probeNoteFreq">329.6 Hz</span>
+    </div>
+    <button class="probe-nav" id="probeUp" title="Next note (+1 semitone)">▶</button>
+  </div>
+  <button class="probe-play-btn" id="probePlayBtn">▶ Play Test Tone</button>
+  <p class="probe-hint">Routes directly into the tuner — no microphone needed &nbsp;·&nbsp; ← → change note &nbsp;·&nbsp; ↑ ↓ jump octave &nbsp;·&nbsp; Space play/stop</p>
+</div>
+
+<div class="strings-section">
+  <p class="strings-label">Standard Tuning — EADGBE</p>
+  <div class="strings-row">
+    <div class="string-chip" data-midi="40"><span class="sn">E2</span><span class="sf">82.4 Hz</span></div>
+    <div class="string-chip" data-midi="45"><span class="sn">A2</span><span class="sf">110.0 Hz</span></div>
+    <div class="string-chip" data-midi="50"><span class="sn">D3</span><span class="sf">146.8 Hz</span></div>
+    <div class="string-chip" data-midi="55"><span class="sn">G3</span><span class="sf">196.0 Hz</span></div>
+    <div class="string-chip" data-midi="59"><span class="sn">B3</span><span class="sf">246.9 Hz</span></div>
+    <div class="string-chip" data-midi="64"><span class="sn">E4</span><span class="sf">329.6 Hz</span></div>
+  </div>
+</div>
+
+</section>
+
+<section class="page-section" id="tuner-section">
 
 <div class="note-display">
   <div class="note-name" id="noteName">–</div>
@@ -299,31 +433,37 @@ canvas#gauge { display: block; width: 100%; height: auto; }
   <p class="status-line" id="statusLine">Click to begin</p>
 </div>
 
-<div class="probe-panel">
-  <p class="probe-header">Test Tone — Probe</p>
-  <div class="probe-main-row">
-    <button class="probe-nav" id="probeDown" title="Previous note (−1 semitone)">◀</button>
-    <div class="probe-note-display">
-      <span class="probe-note-name" id="probeNoteName">E4</span>
-      <span class="probe-note-freq" id="probeNoteFreq">329.6 Hz</span>
+</section>
+
+<section class="page-section" id="metro-section">
+
+<div class="metro-panel">
+  <p class="metro-header">Metronome</p>
+  <div class="metro-bpm-row">
+    <input type="range" id="metroBpmSlider" min="40" max="240" value="120" class="metro-slider">
+    <div class="metro-bpm-display">
+      <input type="number" id="metroBpmVal" value="120" min="40" max="240" class="metro-bpm-input">
+      <span class="metro-bpm-label">BPM</span>
     </div>
-    <button class="probe-nav" id="probeUp" title="Next note (+1 semitone)">▶</button>
   </div>
-  <button class="probe-play-btn" id="probePlayBtn">▶ Play Test Tone</button>
-  <p class="probe-hint">Routes directly into the tuner — no microphone needed &nbsp;·&nbsp; ← → change note &nbsp;·&nbsp; ↑ ↓ jump octave &nbsp;·&nbsp; Space play/stop</p>
+  <div class="beat-row" id="metroBeatRow">
+    <div class="beat-dot">1</div>
+    <div class="beat-dot">2</div>
+    <div class="beat-dot">3</div>
+    <div class="beat-dot">4</div>
+  </div>
+  <div class="metro-controls-row">
+    <button class="metro-btn" id="metroTapBtn">Tap Tempo</button>
+    <button class="metro-btn metro-start-btn" id="metroStartBtn">▶ Start</button>
+  </div>
+  <div class="metro-time-row">
+    <button class="metro-time-chip" data-beats="2">2/4</button>
+    <button class="metro-time-chip" data-beats="3">3/4</button>
+    <button class="metro-time-chip selected" data-beats="4">4/4</button>
+  </div>
 </div>
 
-<div class="strings-section">
-  <p class="strings-label">Standard Tuning — EADGBE</p>
-  <div class="strings-row">
-    <div class="string-chip" data-midi="40"><span class="sn">E2</span><span class="sf">82.4 Hz</span></div>
-    <div class="string-chip" data-midi="45"><span class="sn">A2</span><span class="sf">110.0 Hz</span></div>
-    <div class="string-chip" data-midi="50"><span class="sn">D3</span><span class="sf">146.8 Hz</span></div>
-    <div class="string-chip" data-midi="55"><span class="sn">G3</span><span class="sf">196.0 Hz</span></div>
-    <div class="string-chip" data-midi="59"><span class="sn">B3</span><span class="sf">246.9 Hz</span></div>
-    <div class="string-chip" data-midi="64"><span class="sn">E4</span><span class="sf">329.6 Hz</span></div>
-  </div>
-</div>
+</section>
 
 <script>
 /* ── Note math ── */
@@ -563,7 +703,7 @@ function renderLoop() {
 }
 
 /* ── Audio engine ── */
-let audioCtx, analyser, micSource;
+let audioCtx, analyser, micSource, micStream;
 let isRunning  = false;
 let audioLoop  = false;
 let silenceN   = 0;
@@ -617,19 +757,33 @@ function startLoop() {
 }
 
 /* Microphone */
+function stopMic() {
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (micSource) { micSource.disconnect(); micSource = null; }
+  if (!probeActive) { isRunning = false; audioLoop = false; clearNote(); }
+  const btn = document.getElementById('startBtn');
+  btn.textContent = 'Enable Microphone';
+  btn.classList.remove('active');
+  btn.disabled = false;
+  document.getElementById('statusLine').textContent =
+    probeActive ? 'Test tone active — verify tuner reading' : 'Click to begin';
+}
+
 async function startMic() {
   const btn = document.getElementById('startBtn');
+  if (micStream) { stopMic(); return; }
   try {
     btn.textContent = 'Requesting…'; btn.disabled = true;
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       video: false,
     });
+    micStream = stream;
     await ensureAudioCtx();
     micSource = audioCtx.createMediaStreamSource(stream);
     if (!probeActive) micSource.connect(analyser);
     isRunning = true; startLoop();
-    btn.textContent = 'Listening'; btn.classList.add('active');
+    btn.textContent = 'Stop Listening'; btn.classList.add('active'); btn.disabled = false;
     document.getElementById('statusLine').textContent = 'Play a note on your guitar or sing';
   } catch (err) {
     btn.textContent = 'Enable Microphone'; btn.disabled = false;
@@ -722,6 +876,126 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowUp')    { probeMidi = Math.min(PROBE_MAX, probeMidi + 12); updateProbeDisplay(); }
   if (e.key === 'ArrowDown')  { probeMidi = Math.max(PROBE_MIN, probeMidi - 12); updateProbeDisplay(); }
   if (e.key === ' ') { e.preventDefault(); probeActive ? stopProbe() : startProbe(); }
+});
+
+/* ── Metronome ── */
+let metroBpm    = 120;
+let metroBeats  = 4;
+let metroBeat   = 0;
+let metroActive = false;
+let metroSched  = null;
+let metroNext   = 0;
+
+function metroClick(time, accent) {
+  const osc = audioCtx.createOscillator();
+  const env = audioCtx.createGain();
+  osc.connect(env); env.connect(audioCtx.destination);
+  osc.type = 'triangle';
+  osc.frequency.value = accent ? 1200 : 900;
+  env.gain.setValueAtTime(accent ? 0.9 : 0.65, time);
+  env.gain.exponentialRampToValueAtTime(0.001, time + 0.055);
+  osc.start(time); osc.stop(time + 0.07);
+}
+
+function metroSchedule() {
+  while (metroNext < audioCtx.currentTime + 0.12) {
+    const beat   = metroBeat;
+    const accent = beat === 0;
+    metroClick(metroNext, accent);
+    const delay = Math.max(0, (metroNext - audioCtx.currentTime) * 1000);
+    setTimeout(() => litBeat(beat, accent), delay);
+    metroBeat = (metroBeat + 1) % metroBeats;
+    metroNext += 60 / metroBpm;
+  }
+}
+
+function litBeat(index, accent) {
+  const dots = document.querySelectorAll('.beat-dot');
+  dots.forEach((d, i) => {
+    d.classList.remove('lit', 'accent');
+    if (i === index) { d.classList.add('lit'); if (accent) d.classList.add('accent'); }
+  });
+  setTimeout(() => dots[index]?.classList.remove('lit', 'accent'), 150);
+}
+
+async function startMetro() {
+  await ensureAudioCtx();
+  metroBeat   = 0;
+  metroNext   = audioCtx.currentTime + 0.05;
+  metroActive = true;
+  metroSched  = setInterval(metroSchedule, 25);
+  document.getElementById('metroStartBtn').textContent = '■ Stop';
+  document.getElementById('metroStartBtn').classList.add('active');
+}
+
+function stopMetro() {
+  metroActive = false;
+  clearInterval(metroSched);
+  metroBeat = 0;
+  document.getElementById('metroStartBtn').textContent = '▶ Start';
+  document.getElementById('metroStartBtn').classList.remove('active');
+  document.querySelectorAll('.beat-dot').forEach(d => d.classList.remove('lit', 'accent'));
+}
+
+function rebuildBeatDots() {
+  const row = document.getElementById('metroBeatRow');
+  row.innerHTML = '';
+  for (let i = 0; i < metroBeats; i++) {
+    const d = document.createElement('div');
+    d.className = 'beat-dot';
+    d.textContent = i + 1;
+    row.appendChild(d);
+  }
+}
+
+document.getElementById('metroBpmSlider').addEventListener('input', e => {
+  metroBpm = parseInt(e.target.value);
+  document.getElementById('metroBpmVal').value = metroBpm;
+  if (metroActive) { metroBeat = 0; metroNext = audioCtx.currentTime + 0.05; }
+});
+
+document.getElementById('metroBpmVal').addEventListener('change', e => {
+  const v = parseInt(e.target.value);
+  if (!isNaN(v)) {
+    metroBpm = Math.min(240, Math.max(40, v));
+    e.target.value = metroBpm;
+    document.getElementById('metroBpmSlider').value = metroBpm;
+    if (metroActive) { metroBeat = 0; metroNext = audioCtx.currentTime + 0.05; }
+  } else {
+    e.target.value = metroBpm;
+  }
+});
+
+document.getElementById('metroStartBtn').addEventListener('click', () => {
+  metroActive ? stopMetro() : startMetro();
+});
+
+// Tap tempo
+const tapLog = [];
+document.getElementById('metroTapBtn').addEventListener('click', () => {
+  const now = performance.now();
+  tapLog.push(now);
+  while (tapLog.length > 1 && now - tapLog[0] > 3000) tapLog.shift();
+  if (tapLog.length >= 2) {
+    let sum = 0;
+    for (let i = 1; i < tapLog.length; i++) sum += tapLog[i] - tapLog[i - 1];
+    const avg = sum / (tapLog.length - 1);
+    metroBpm = Math.min(240, Math.max(40, Math.round(60000 / avg)));
+    document.getElementById('metroBpmVal').value = metroBpm;
+    document.getElementById('metroBpmSlider').value = metroBpm;
+    if (metroActive) { metroBeat = 0; metroNext = audioCtx.currentTime + 0.05; }
+  }
+});
+
+// Time signature selection
+document.querySelectorAll('.metro-time-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    metroBeats = parseInt(chip.dataset.beats);
+    metroBeat  = 0;
+    document.querySelectorAll('.metro-time-chip').forEach(c => c.classList.remove('selected'));
+    chip.classList.add('selected');
+    rebuildBeatDots();
+  });
 });
 
 /* ── Init ── */
